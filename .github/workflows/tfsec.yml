@@ -1,0 +1,63 @@
+name: tfsec
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+jobs:
+  tfsec:
+    name: tfsec sarif report
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+#      - uses: actions/setup-go@v2
+#        with:
+#          go-version: '^1.13.1' # The Go version to download (if necessary) and use.
+
+#          go get -u github.com/tfsec/tfsec/cmd/tfsec
+#          mkdir -p output
+#      - name: remove dvfaas folder because it is giving tfsec problems due to 0.11 usage
+#        run: |
+
+#          curl -LO https://raw.github.com/robertpeteuil/terraform-installer/master/terraform-install.sh
+#          chmod +x terraform-install.sh
+#          terraform-install.sh -c -i 0.14.7
+#          terraform init
+#          cd vulnerable-codebases/tfsec-example-project
+
+      - name: tfsec
+        run: |
+          wget -O - -q "$(wget -q https://api.github.com/repos/tfsec/tfsec/releases/latest -O - | grep -o -E "https://.+?tfsec-linux-amd64")" > tfsec \
+           && sudo install tfsec /usr/local/bin/
+          mkdir -p output
+          tfsec -f default --soft-fail || true
+          tfsec -f json --soft-fail > output/tfsec.json || true
+          tfsec -f sarif --soft-fail > output/tfsec.sarif || true
+          tfsec -f default --no-color --soft-fail > output/tfsec.txt || true
+          ls -al
+          ls -al output/
+
+
+      - name: Upload report artifacts
+        uses: actions/upload-artifact@v2
+        if: ${{ always() }}
+        with:
+          name: Tfsec reports
+          path: output/
+
+#      - name: tfsec
+#        uses: tfsec/tfsec-sarif-action@master
+#        with:
+#          sarif_file: tfsec.sarif
+#          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+#      - name: Upload SARIF file
+#        uses: github/codeql-action/upload-sarif@v1
+#        with:
+#          # Path to SARIF file relative to the root of the repository
+#          sarif_file: tfsec.sarif
